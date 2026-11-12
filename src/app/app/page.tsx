@@ -1,0 +1,5 @@
+import { requireAccess } from '@/lib/auth';
+export default async function Dashboard() {
+  const { access } = await requireAccess();
+  return <><p className="eyebrow">FINANCIAL MANAGEMENT SYSTEM</p><h1>Рабочее пространство</h1><p className="muted">Персональный доступ Министерства финансов штата Сан-Андреас.</p><section className="card"><h2>Сведения о доступе</h2><dl><dt>Должностное лицо</dt><dd>{access.ic_name}</dd><dt>Должность</dt><dd>{access.title}</dd><dt>Назначения</dt><dd>{access.roles.join(', ') || 'Нет действующих назначений'}</dd><dt>Дополнительные полномочия</dt><dd>{access.permissions.join(', ') || 'Не предоставлены'}</dd></dl></section><section className="card"><h2>Нормативная проверка</h2><p>Форумные акты ссылаются на MOF-BFR-01 и MOF-PR-01. Ссылки подачи ведут на единую форму MOF-REQ-01. До сверки действующей редакции официальная регистрация финансовых операций закрыта.</p><p className="muted">Финансовые показатели появятся после подключения казначейского учёта и ввода подтверждённых начальных остатков.</p></section></>;
+}

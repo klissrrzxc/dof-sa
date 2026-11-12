@@ -1,0 +1,2 @@
+-- Intentionally no users, credentials, balances or normative dictionaries.
+-- Isolated test fixtures live in tests/database.test.ts; they never enter production.
