@@ -1,0 +1,25 @@
+// Read only: no users, invitations or business data are created.
+import assert from 'node:assert/strict';
+const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
+const key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+assert(url&&key,'Set Supabase URL and publishable key first');
+const headers={apikey:key,'Content-Type':'application/json'};
+const tables=['profiles','organizations','role_assignments','permission_grants','audit_events','system_settings','financial_cases','case_versions','case_events','procurement_items'];
+for(const table of tables){
+  const r=await fetch(`${url}/rest/v1/${table}?select=*&limit=1`,{headers});
+  assert([401,403].includes(r.status),`Anonymous ${table}: unexpected ${r.status}`);
+  console.log(`PASS anonymous ${table}: ${r.status}`);
+}
+const rpc=await fetch(`${url}/rest/v1/rpc/my_access`,{method:'POST',headers,body:'{}'});
+assert([401,403].includes(rpc.status),`Anonymous my_access: unexpected ${rpc.status}`);
+console.log(`PASS anonymous RPC: ${rpc.status}`);
+const storage=await fetch(`${url}/storage/v1/object/list/financial-documents`,{method:'POST',headers,body:JSON.stringify({prefix:'',limit:1})});
+// Some Storage gateways return 200 with no visible objects under RLS.
+if(storage.status===200) assert.deepEqual(await storage.json(),[],'Anonymous storage listing exposed objects');
+else assert([400,401,403].includes(storage.status),`Anonymous storage: unexpected ${storage.status}`);
+console.log(`PASS anonymous Storage: ${storage.status}`);
+const settings=await fetch(`${url}/auth/v1/settings`,{headers});
+assert(settings.ok,`Auth settings: ${settings.status}`);
+const auth=await settings.json();
+console.log(`Auth public signup disabled: ${auth.disable_signup===true}`);
+if(auth.disable_signup!==true){console.error('OWNER ACTION: disable public signup in Supabase Auth before release.');process.exitCode=2;}

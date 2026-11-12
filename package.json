@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:live": "node --env-file-if-exists=.env.local scripts/verify-live.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

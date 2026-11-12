@@ -1,9 +1,9 @@
 # Развёртывание Supabase + Vercel
 
-Деплой в этой поставке не выполнялся. Не применять SQL к чужому действующему проекту: обнаруженный подключённый Supabase используется другим приложением; отдельный проект FMS не выбран.
+Веб-деплой в этой поставке не выполнялся. Владелец выбрал Supabase `yyoodoxfyiicxgambtbr`: схема уже развёрнута, 3 миграции применены через MCP, Security Advisor чист. Не применять их повторно вручную. Локальные имена файлов синхронизированы с фактическими версиями облачной истории. Подробности — live-verification.md.
 
 1. Владелец создаёт отдельный Supabase-проект или явно выбирает предназначенный для FMS. Сначала проверить существующую схему/миграции и сделать резервную копию. Новый проект рекомендуется для исключения конфликта имён.
-2. `pnpm exec supabase link` и `pnpm exec supabase db push` после просмотра `--help` и SQL-ревью. Применяются миграции из `supabase/migrations`. Выполнить Database/Security advisors и исправить замечания. Облачные advisors здесь не запускались: целевой проект не подключён.
+2. `pnpm exec supabase link` и `pnpm exec supabase db push` после просмотра `--help` и SQL-ревью. Применяются миграции из `supabase/migrations`. Выполнить Database/Security advisors и исправить замечания. В выбранном проекте advisors запущены: security без замечаний, performance содержит только unused_index INFO на новой пустой базе.
 3. В Auth отключить public signup и anonymous sign-ins; включить TOTP enrollment/verification. Пароль от 12 символов; включить подтверждения email и защиту изменения пароля. Проверить rate limits входа/OTP, настроить production SMTP и допустимый срок приглашения (например, 1 час согласно локальному конфигу).
 4. Настроить Site URL на HTTPS origin Vercel, Redirect URLs — точный `/auth/confirm`. Invite email template:
 
@@ -20,7 +20,7 @@
 
 ## Что требуется от владельца
 
-- Отдельный Supabase project ref, URL и publishable key; DB-доступ для применения миграций. Не отправлять пароли в чат.
+- Supabase project ref, URL и publishable key уже получены; локальная `.env.local` настроена и исключена из Git. Владелец повторяет env в Vercel и настраивает облачный Auth. Не отправлять пароли в чат.
 - Server-only service-role key для приглашений; SMTP и шаблон письма.
 - Vercel project, домен/HTTPS origin и env-настройки.
 - IC-данные, ведомство, должность и Auth UUID первого администратора.
