@@ -1,10 +1,4 @@
-import { forbidden } from 'next/navigation';
-import { requireAccess } from '@/lib/auth';
-import { CaseForm } from '@/components/case-form';
-export default async function NewCase() {
-  const {db,access}=await requireAccess();
-  if(!access.roles.includes('agency_representative')) forbidden();
-  const {data,error}=await db.from('organizations').select('name,address,account_reference').eq('id',access.organization_id).single();
-  if(error) throw new Error('Ведомство недоступно');
-  return <><p className="eyebrow">INTERNAL DRAFT</p><h1>Новый черновик заявления</h1><CaseForm initial={{agencyName:data.name,agencyAddress:data.address,agencyAccount:data.account_reference,applicantName:access.ic_name,applicantTitle:access.title}}/></>;
-}
+import {forbidden} from 'next/navigation';
+import {requireAccess} from '@/lib/auth';
+import {CaseForm} from '@/components/case-form';
+export default async function NewCase(){const {db,access}=await requireAccess();if(!access.roles.includes('agency_representative'))forbidden();const [org,profile]=await Promise.all([db.from('organizations').select('name,address,account_reference').eq('id',access.organization_id).single(),db.from('profiles').select('static_id,game_phone,authority_level,authority_document').eq('auth_user_id',access.id).single()]);if(org.error||profile.error)throw new Error('Служебные реквизиты недоступны');return <><p className="eyebrow">NEW FINANCIAL CASE</p><h1>Новое заявление</h1><p className="muted">Сохраните данные, приложите документы и отдельно направьте заявление на рассмотрение.</p><CaseForm initial={{agencyName:org.data.name,agencyAddress:org.data.address,agencyAccount:org.data.account_reference,applicantName:access.ic_name,applicantTitle:access.title,staticId:profile.data.static_id||'',phone:profile.data.game_phone,authority:profile.data.authority_level==='AGENCY_HEAD'?'Руководитель ведомства':profile.data.authority_document}}/></>;}

@@ -1,0 +1,5 @@
+import {redirect} from 'next/navigation';
+import {supabase} from '@/lib/supabase/server';
+import {logout} from '@/app/login/actions';
+export const dynamic='force-dynamic';
+export default async function Pending(){const db=await supabase();const {data:{user}}=await db.auth.getUser();if(!user)redirect('/login');const {data,error}=await db.rpc('access_request_status');if(error||!data)redirect('/login');if(data.status==='APPROVED'&&data.active)redirect('/app');return <main className="auth-card"><p className="eyebrow">ACCESS REQUEST</p><h1>{data.status==='REJECTED'?'Заявка отклонена':data.status==='APPROVED'?'Доступ приостановлен':'Заявка на проверке'}</h1><p>{data.status==='REJECTED'?'Администратор не подтвердил доступ. После исправления данных можно подать новую заявку.':data.status==='APPROVED'?'Обратитесь к администратору для проверки служебного доступа.':'Пароль принят. Рабочие разделы откроются после проверки RP-данных и назначения полномочий администратором.'}</p>{data.note&&<p className="notice">{data.note}</p>}<form action={logout}><button>Выйти</button></form></main>;}

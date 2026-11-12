@@ -6,6 +6,7 @@ do $$declare a uuid:=gen_random_uuid();d uuid:=gen_random_uuid();o uuid:=gen_ran
  insert into public.profiles(auth_user_id,ic_name,title,organization_id,status) values(a,'ROLLBACK Agent','TEST',o,'active'),(d,'ROLLBACK Director','TEST',o,'active');
  insert into public.role_assignments(user_id,role,assigned_by) values(a,'agency_representative',d),(d,'finance_director',d);
  insert into public.permission_grants(user_id,permission,assigned_by,reason) select d,p,d,'ROLLBACK TEST delegation' from unnest(enum_range(null::public.permission_key))p;
+ update public.profiles set authority_level='AGENCY_HEAD' where auth_user_id=a;
  perform set_config('request.jwt.claims',jsonb_build_object('sub',d,'aal','aal2','role','authenticated')::text,true);execute 'set local role authenticated';
  r:=public.perform_operation('period.create',null,'{"name":"ROLLBACK TEST PERIOD","start_date":"2026-01-01","end_date":"2026-12-31","basis":"ROLLBACK verified basis"}',gen_random_uuid());period:=(r->>'id')::uuid;
  r:=public.perform_operation('category.create',null,'{"code":"ROLLBACK-INC","name":"ROLLBACK INCOME","kind":"INCOME","source":"ROLLBACK TEST LAW","verified":"true","basis":"ROLLBACK verified basis"}',gen_random_uuid());inc:=(r->>'id')::uuid;

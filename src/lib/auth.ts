@@ -9,14 +9,12 @@ export async function requireIdentity() {
   const { data: { user }, error } = await db.auth.getUser();
   if (error || !user) redirect('/login');
   const { data, error: accessError } = await db.rpc('my_access');
-  if (accessError || !data) forbidden();
+  if (accessError) forbidden();
+  if (!data) {const pending=await db.rpc('access_request_status');if(pending.data&&['PENDING','REJECTED'].includes(pending.data.status))redirect('/auth/pending');forbidden();}
   return { db, user, access: data as Access };
 }
 export async function requireAccess(permission?: Permission) {
   const result = await requireIdentity();
-  const { data, error } = await result.db.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (error) forbidden();
-  if ((result.access.mfa_required || data.nextLevel === 'aal2') && data.currentLevel !== 'aal2') redirect('/auth/mfa');
   if (permission && !allowed(result.access, permission)) forbidden();
   return result;
 }

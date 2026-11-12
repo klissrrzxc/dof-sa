@@ -9,8 +9,8 @@ async function asUser(id:string,aal='aal2'){
   await db.exec('set role authenticated');
 }
 beforeAll(async()=>{
-  await db.exec(`create role anon; create role authenticated; create schema auth; create schema storage;
-    create table auth.users(id uuid primary key);
+  await db.exec(`create role anon;create role service_role bypassrls; create role authenticated; create schema auth; create schema storage;
+    create table auth.users(id uuid primary key,email text unique);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub' $$;
   `.replace("select nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub'","select (nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid"));
   await db.exec(`create function auth.jwt() returns jsonb language sql stable as $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
@@ -26,7 +26,7 @@ beforeAll(async()=>{
       ('${agency}','Test Agent','Agent','10000000-0000-4000-8000-000000000001','active'),
       ('${ems}','EMS Agent','Agent','10000000-0000-4000-8000-000000000002','active'),
       ('${other}','Other Agent','Agent','10000000-0000-4000-8000-000000000002','active');
-    insert into public.role_assignments(user_id,role,assigned_by) values ('${admin}','system_admin','${admin}'),('${agency}','agency_representative','${admin}'),('${ems}','agency_representative','${admin}'),('${other}','agency_representative','${admin}');`);
+    insert into public.role_assignments(user_id,role,assigned_by) values ('${admin}','system_admin','${admin}'),('${agency}','agency_representative','${admin}'),('${ems}','agency_representative','${admin}'),('${other}','agency_representative','${admin}');update public.profiles set authority_level='AGENCY_HEAD' where auth_user_id in ('${agency}','${ems}','${other}');`);
 });
 afterAll(async()=>{await db.close()});
 describe('PostgreSQL authorisation (real SQL with simulated Supabase JWT context)',()=>{
@@ -41,10 +41,10 @@ describe('PostgreSQL authorisation (real SQL with simulated Supabase JWT context
     expect((await db.query('select * from public.organizations')).rows).toHaveLength(1);
     await expect(db.query(`update public.profiles set status='active' where auth_user_id='${other}'`)).rejects.toThrow(/permission denied/);
   });
-  it('administrator with aal1 cannot access data or mutate roles',async()=>{
+  it('administrator can use password-only access but cannot self-promote',async()=>{
     await asUser(admin,'aal1');
-    expect((await db.query('select * from public.profiles')).rows).toHaveLength(0);
-    await expect(db.query(`select public.set_staff_role('${other}','finance_director','Test reason')`)).rejects.toThrow(/forbidden/);
+    expect((await db.query('select * from public.profiles')).rows).toHaveLength(4);
+    await expect(db.query(`select public.set_staff_role('${admin}','finance_director','Test reason')`)).rejects.toThrow(/forbidden/);
   });
   it('administrator cannot approve finances and cannot self-promote',async()=>{
     await asUser(admin);
@@ -118,11 +118,11 @@ describe('PostgreSQL authorisation (real SQL with simulated Supabase JWT context
     await expect(db.query("select public.save_case_draft($1,1,'PROCUREMENT_REQUEST',$2::jsonb)",[r.rows[0].id,JSON.stringify(payload)])).rejects.toThrow();
     expect((await db.query<{version:number}>('select version from public.financial_cases where id=$1',[r.rows[0].id])).rows[0].version).toBe(1);
   });
-  it('permission grants require MFA and revoked grants stop working with the same JWT',async()=>{
+  it('permission grants work without MFA and revoked grants stop working with the same JWT',async()=>{
     await db.exec('reset role');
     await db.query("insert into public.permission_grants(user_id,permission,assigned_by,reason) values($1,'cases.read_all',$2,'Test delegation')",[ems,admin]);
     await asUser(ems,'aal1');
-    expect((await db.query<{ok:boolean}>("select private.has_permission('cases.read_all') ok")).rows[0].ok).toBe(false);
+    expect((await db.query<{ok:boolean}>("select private.has_permission('cases.read_all') ok")).rows[0].ok).toBe(true);
     await asUser(ems,'aal2');
     expect((await db.query<{ok:boolean}>("select private.has_permission('cases.read_all') ok")).rows[0].ok).toBe(true);
     expect((await db.query('select * from public.financial_cases where id=$1',[draftId])).rows).toHaveLength(1);
@@ -311,4 +311,42 @@ it('document management does not bypass the organization boundary of case docume
  await asUser(ems,'aal2');
  expect((await db.query('select * from public.documents where case_id=$1',[caseId])).rows).toHaveLength(0);
  expect((await db.query('select * from public.document_versions where document_id=$1',[hidden])).rows).toHaveLength(0);
+});
+
+describe('access requests and administrator-approved RP identities',()=>{
+ const pendingUser='00000000-0000-4000-8000-000000000006';let requestId:string;
+ const request={static_id:'900000000001',ic_name:'TEST Request Person',game_phone:'TEST-123',organization_name:'TEST requested agency',requested_level:'FINANCE_DIRECTOR',authority_document:''};
+ const fingerprint='a'.repeat(64);
+ it('public clients cannot directly insert or finalize an access request',async()=>{
+  await asUser(agency,'aal1');await expect(db.query("select public.reserve_access_request($1::jsonb,$2)",[JSON.stringify(request),fingerprint])).rejects.toThrow(/permission denied/);
+  await expect(db.query("insert into public.access_requests(static_id,ic_name,game_phone,organization_name,requested_level) values('900000000002','TEST Person','TEST','TEST','AGENCY_HEAD')")).rejects.toThrow(/permission denied/);
+ });
+ it('the service reserves metadata only; a password cannot be passed to SQL storage',async()=>{
+  await db.exec('reset role;set role service_role');
+  await expect(db.query('select public.reserve_access_request($1::jsonb,$2)',[JSON.stringify({...request,password:'TEST-not-to-be-stored'}),fingerprint])).rejects.toThrow(/invalid_request/);
+  const r=await db.query<{r:{id:string;create:boolean}}>('select public.reserve_access_request($1::jsonb,$2) r',[JSON.stringify(request),fingerprint]);expect(r.rows[0].r.create).toBe(true);requestId=r.rows[0].r.id;
+  await db.exec('reset role');await db.query('insert into auth.users(id,email) values($1,$2)',[pendingUser,'id-'+request.static_id+'@users.dof-sa.invalid']);await db.exec('set role service_role');
+  await db.query('select public.finish_access_request($1,$2,true)',[requestId,pendingUser]);
+ });
+ it('a pending identity cannot see users, cases or the application registry, regardless of requested role',async()=>{
+  await asUser(pendingUser,'aal1');expect((await db.query<{a:unknown}>('select public.my_access() a')).rows[0].a).toBeNull();
+  for(const table of ['profiles','financial_cases','access_requests'])expect((await db.query('select * from public.'+table)).rows).toHaveLength(0);
+  expect((await db.query<{s:{status:string}}>('select public.access_request_status() s')).rows[0].s.status).toBe('PENDING');
+  await expect(operation('appropriation.set',null,{amount:'1'})).rejects.toThrow(/forbidden/);
+  await expect(db.query("select public.review_access_request($1,'APPROVE','{}')",[requestId])).rejects.toThrow(/forbidden/);
+ });
+ it('administrator confirmation and actual assigned level control access, not the requested level',async()=>{
+  await asUser(admin,'aal1');const approval={ic_name:'TEST Confirmed Head',game_phone:'TEST-456',title:'Agency head',organization_id:'10000000-0000-4000-8000-000000000001',level:'AGENCY_HEAD',authority_document:'',note:'TEST independently verified request'};
+  await expect(db.query("select public.review_access_request($1,'APPROVE',$2::jsonb)",[requestId,JSON.stringify(approval)])).rejects.toThrow(/identity_confirmation_required/);
+  await db.query("select public.review_access_request($1,'APPROVE',$2::jsonb)",[requestId,JSON.stringify({...approval,confirmed:'true'})]);
+  await expect(db.query("select public.review_access_request($1,'APPROVE',$2::jsonb)",[requestId,JSON.stringify({...approval,confirmed:'true'})])).rejects.toThrow(/request_not_pending/);
+  await asUser(pendingUser,'aal1');const a=(await db.query<{a:{roles:string[];permissions:string[];mfa_required:boolean}}>('select public.my_access() a')).rows[0].a;
+  expect(a.roles).toEqual(['agency_representative']);expect(a.permissions).toEqual([]);expect(a.mfa_required).toBe(false);
+  await expect(operation('case.approve',caseId,{amount:'1'})).rejects.toThrow(/forbidden/);
+ });
+ it('service duplicate submission does not expose an existing request and public requests are throttled',async()=>{
+  await db.exec('reset role;set role service_role');const r=await db.query<{r:{create:boolean;id?:string}}>('select public.reserve_access_request($1::jsonb,$2) r',[JSON.stringify(request),fingerprint]);expect(r.rows[0].r).toEqual({create:false});
+  for(let i=0;i<18;i++)await db.query('select public.reserve_access_request($1::jsonb,$2)',[JSON.stringify(request),fingerprint]);
+  await expect(db.query('select public.reserve_access_request($1::jsonb,$2)',[JSON.stringify(request),fingerprint])).rejects.toThrow(/request_rate_limit/);
+ });
 });
