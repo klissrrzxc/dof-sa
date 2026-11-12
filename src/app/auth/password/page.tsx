@@ -1,3 +1,4 @@
+import {supabaseConfig} from '@/lib/config';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { supabase } from '@/lib/supabase/server';
@@ -13,6 +14,7 @@ async function setPassword(form: FormData) {
   redirect('/app');
 }
 export default async function PasswordPage() {
+  if (!supabaseConfig()) redirect('/login');
   const { data:{user} } = await (await supabase()).auth.getUser();
   if (!user) redirect('/login');
   return <main className="auth-card"><h1>Персональный пароль</h1><form action={setPassword} className="stack"><label>Новый пароль<input name="password" type="password" minLength={12} maxLength={128} required autoComplete="new-password"/></label><button>Установить пароль</button></form></main>;
