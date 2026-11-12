@@ -1,0 +1,8 @@
+'use client';
+import Link from 'next/link';
+import {useState} from 'react';
+import type {BudgetCategory} from '@/lib/catalog';
+export function CategoryPicker({categories,initialCode='',initialName=''}:{categories:BudgetCategory[];initialCode?:string;initialName?:string}){
+ const [code,setCode]=useState(initialCode);const selected=categories.find(c=>c.code===code);
+ return <div className="category-picker"><label htmlFor="case-category">Статья расходов</label><select id="case-category" name="categoryCode" value={code} onChange={e=>setCode(e.target.value)} aria-describedby="case-category-hint"><option value="">Выберите, на что нужны средства…</option>{initialCode&&!categories.some(c=>c.code===initialCode)&&<option value={initialCode}>{initialCode} · прежняя статья (требует проверки)</option>}{categories.map(c=><option key={c.id} value={c.code}>{c.code} · {c.name}</option>)}</select><input type="hidden" name="categoryName" value={selected?.name||initialName}/><p id="case-category-hint" className="field-hint">Код и название подставятся автоматически. <Link href="/app/catalog">Посмотреть все статьи</Link></p>{selected&&<div className="category-explanation"><strong>{selected.category_group||selected.name}</strong><p>{selected.description}</p><p><span className="muted">Документ-основание:</span> {selected.required_documents||'Укажите действующий документ, разрешающий расход.'}</p>{selected.code==='99.01'&&<p className="notice">Прочие расходы: письменно объясните, почему ни одна специальная статья не подходит, и приложите отдельное утверждение.</p>}</div>}{!categories.length&&<p className="notice">Нет доступных статей. Попросите администратора проверить классификатор.</p>}</div>;
+}

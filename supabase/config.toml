@@ -436,3 +436,6 @@ entrypoint = "./functions/staff-invite/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/access-request/index.ts"
+
+[functions.case-file-upload]
+verify_jwt = false

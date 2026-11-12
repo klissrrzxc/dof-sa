@@ -1,3 +1,7 @@
+# Основная публикация: GitHub Pages
+
+Система публикуется на [klissrrzxc.github.io/dof-sa](https://klissrrzxc.github.io/dof-sa/). Пользователям не нужен localhost. [Архитектура, публикация и ограничения Pages](docs/github-pages.md). Добавлены пошаговые инструкции, примеры заполнения и 24 статьи бюджета. Команда статической сборки: `pnpm build:pages`; preview: `pnpm preview:pages`. Описание Next.js ниже относится к сохраняемому локальному варианту.
+
 # DOF-SA FMS
 
 Закрытая RP-система Министерства финансов San Andreas. Next.js App Router, TypeScript strict, Supabase Auth/PostgreSQL/private Storage, Tailwind CSS. Русский интерфейс. Разработка по [ТЗ](docs/specification.md).

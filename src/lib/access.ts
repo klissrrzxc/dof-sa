@@ -12,6 +12,8 @@ export function visibleModules(a: Access) {
     { href: '/app/treasury', label: 'Казначейство', visible: a.permissions.some(p => p.startsWith('treasury.') || ['finance.approve','reports.approve'].includes(p)) },
     { href: '/app/documents', label: 'Документы', visible: a.roles.some(r=>r!=='system_admin') || allowed(a,'docs.manage') },
     { href: '/app/reports', label: 'Отчётность', visible: a.permissions.some(p=>p.startsWith('treasury.') || ['finance.approve','reports.approve'].includes(p)) },
+    { href: '/app/catalog',label:'Каталог статей',visible:true },
+    { href: '/app/help',label:'Помощь и инструкции',visible:true },
     { href: '/app/admin', label: 'Администрирование', visible: ['users.manage','settings.manage','audit.read'].some(p => a.permissions.includes(p as Permission)) },
   ].filter(m => m.visible);
 }

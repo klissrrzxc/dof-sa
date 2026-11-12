@@ -1,0 +1,6 @@
+{
+ "extends":"./tsconfig.json",
+ "compilerOptions":{"plugins":[],"incremental":false},
+ "include":["pages/**/*.ts","pages/**/*.tsx","vite.config.ts","src/**/*.ts","src/**/*.tsx"],
+ "exclude":["node_modules","src/app/**/route.ts"]
+}

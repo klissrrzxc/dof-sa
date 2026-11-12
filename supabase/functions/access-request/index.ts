@@ -1,8 +1,12 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.119.0';
 import {z} from 'npm:zod@4.6.7';
 const schema=z.object({static_id:z.string().regex(/^[1-9]\d{0,11}$/),ic_name:z.string().trim().min(3).max(150),game_phone:z.string().trim().min(3).max(40),organization_name:z.string().trim().min(2).max(200),requested_level:z.enum(['REPRESENTATIVE','AGENCY_HEAD','FINANCE_OFFICER','FINANCE_DIRECTOR']),authority_document:z.string().trim().max(2000).default(''),password:z.string().min(12).max(128)}).refine(d=>d.requested_level!=='REPRESENTATIVE'||d.authority_document.length>=5);
-const respond=(status:number)=>new Response(JSON.stringify({message:status===200?'Request received':'Request unavailable'}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
+const respondBase=(status:number)=>new Response(JSON.stringify({message:status===200?'Request received':'Request unavailable'}),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 Deno.serve(async(req:Request)=>{
+ const origin=req.headers.get('origin')||'';const allowed=new Set(['https://klissrrzxc.github.io','http://127.0.0.1:4173','http://localhost:4173','http://127.0.0.1:3000','http://localhost:3000']);
+ const respond=(status:number)=>{const r=respondBase(status);if(allowed.has(origin))r.headers.set('Access-Control-Allow-Origin',origin);r.headers.set('Vary','Origin');r.headers.set('Access-Control-Allow-Headers','authorization, apikey, content-type, x-client-info');r.headers.set('Access-Control-Allow-Methods','POST, OPTIONS');return r;};
+ if(origin&&!allowed.has(origin))return respond(403);if(req.method==='OPTIONS'){const r=respond(200);return new Response(null,{status:204,headers:r.headers});}
+
  if(req.method!=='POST')return respond(405);
  let requestId:string|undefined,createdUser:string|undefined;
  const url=Deno.env.get('SUPABASE_URL')!,key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;

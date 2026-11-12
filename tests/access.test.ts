@@ -5,7 +5,7 @@ describe('server navigation and authority',()=>{
   it('administrator has no implicit financial authority',()=>{
     expect(allowed(admin,'finance.approve')).toBe(false);
     expect(allowed(admin,'treasury.execute')).toBe(false);
-    expect(visibleModules(admin).map(x=>x.label)).toEqual(['Обзор','Администрирование']);
+    expect(visibleModules(admin).map(x=>x.label)).toEqual(['Обзор','Каталог статей','Помощь и инструкции','Администрирование']);
   });
   it('treasury grant reveals the implemented treasury module',()=>{
     const granted={...admin,permissions:[...admin.permissions,'treasury.execute'] as Access['permissions']};

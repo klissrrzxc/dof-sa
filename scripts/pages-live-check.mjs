@@ -1,0 +1,16 @@
+import {chromium} from '@playwright/test';
+import {randomBytes} from 'node:crypto';
+const base=process.env.FMS_PAGES_URL||'http://127.0.0.1:4173/';
+const browser=await chromium.launch(),page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const password=randomBytes(24).toString('base64url');
+await page.goto(base+'#/register');
+for(const [label,value] of [['Static ID','999999999992'],['Имя и фамилия','TEST PAGES TEMP'],['Игровой номер телефона','TEST-000'],['Организация','TEST PAGES TEMP ORGANIZATION'],['Ваш пароль',password],['Повторите пароль',password]])await page.getByLabel(label,{exact:true}).fill(value);
+await page.getByLabel('Приказ / документ').fill('TEST ORDER TEMP');await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Отправить заявку на доступ'}).click();await page.getByRole('status').filter({hasText:'Заявка принята'}).waitFor({timeout:30000});
+await page.goto(base+'#/login');await page.getByLabel('Static ID / email').fill('999999999992');await page.getByLabel('Пароль',{exact:true}).fill(password);await page.getByRole('button',{name:'Войти в систему'}).click();await page.waitForURL('**/#/auth/pending');console.log('PASS Pages registration and pending guard. Awaiting labelled temporary approval.');await new Promise(resolve=>process.stdin.once('data',resolve));
+await page.reload();await page.waitForURL('**/#/app');await page.getByRole('heading',{name:'Обзор',exact:true}).waitFor();
+await page.getByRole('link',{name:'Каталог статей',exact:true}).first().click();await page.getByRole('heading',{name:'Каталог статей',exact:true}).waitFor();if(await page.locator('.catalog-item').count()!==24)throw new Error('Expected 24 seeded categories');
+await page.goto(base+'#/app/cases/new');await page.getByLabel('Статья расходов',{exact:true}).selectOption('03.01');await page.getByLabel('Целевое назначение',{exact:true}).fill('TEST PAGES TEMP DRAFT');await page.getByLabel('Запрашиваемая сумма, целые игровые доллары').fill('25000');await page.getByRole('button',{name:'Сохранить черновик'}).click();await page.waitForURL(/#\/app\/cases\/[0-9a-f-]{36}$/);const caseId=page.url().split('/').at(-1);console.log('PASS draft save via Pages. Temporary case '+caseId);
+await page.locator('input[type=file]').setInputFiles({name:'TEST-PAGES-TEMP.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==','base64')});await page.getByRole('button',{name:'Прикрепить файл'}).click();await page.getByRole('link',{name:'TEST-PAGES-TEMP.png'}).waitFor({timeout:30000});console.log('PASS private upload through authenticated Edge Function');
+console.log('Awaiting temporary finance/admin grants for module read checks.');await new Promise(resolve=>process.stdin.once('data',resolve));
+for(const [path,heading] of [['/app/admin','Администрирование'],['/app/treasury','Казначейство'],['/app/reports','Отчётность'],['/app/documents','Документы'],['/app/help','Как работать с системой']]){await page.goto(base+'#'+path);await page.getByRole('heading',{name:heading,exact:true}).waitFor();console.log('PASS module '+path);}
+if(errors.length)throw new Error(errors.join('; '));await browser.close();console.log('PASS Pages integration complete; cleanup temporary test data now.');
