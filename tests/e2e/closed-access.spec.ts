@@ -1,5 +1,5 @@
 import { test,expect } from '@playwright/test';
-for(const path of ['/app','/app/cases','/app/cases/10000000-0000-4000-8000-000000000001','/app/treasury','/app/documents','/app/reports','/app/admin']) {
+for(const path of ['/app','/app/cases','/app/cases/10000000-0000-4000-8000-000000000001','/app/treasury','/app/documents','/app/reports','/app/admin','/app/cases/new','/app/export/audit','/app/export/treasury','/app/files/10000000-0000-4000-8000-000000000001']) {
   test('anonymous request is redirected: '+path,async({request})=>{
     const response=await request.get(path,{maxRedirects:0});
     expect(response.status()).toBe(307); expect(response.headers().location).toBe('/login');

@@ -426,3 +426,8 @@ enabled = true
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
 
 
+
+[functions.staff-invite]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/staff-invite/index.ts"

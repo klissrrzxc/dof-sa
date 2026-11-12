@@ -1,0 +1,11 @@
+import {forbidden} from 'next/navigation';
+import {requireAccess} from '@/lib/auth';
+import {allowed} from '@/lib/access';
+import {OperationForm} from '@/components/operation-form';
+import {CopyBBCode} from '@/components/copy-bbcode';
+import {statusLabels} from '@/lib/operations';
+export default async function Reports(){
+ const {db,access}=await requireAccess();if(!access.roles.some(r=>['finance_director','finance_officer'].includes(r))||!access.permissions.some(p=>p.startsWith('treasury.')||['finance.approve','reports.approve'].includes(p)))forbidden();
+ const [periods,reports]=await Promise.all([db.from('budget_periods').select('id,name').order('start_date',{ascending:false}),db.from('public_report_drafts').select('*').order('created_at',{ascending:false}).limit(50)]);if(periods.error||reports.error)throw new Error('Отчётность недоступна');
+ return <><p className="eyebrow">FINANCIAL REPORTING</p><h1>Отчётность</h1><section className="card"><h2>Сформировать новую редакцию</h2><p>Сводка использует только подтверждённые казначейские записи. Резервы показаны отдельно от кассовых расходов. Персональные данные и реквизиты в BBCode не включаются.</p><OperationForm op="report.generate" title="Сформировать проект" fields={[{name:'target',label:'Бюджетный период',type:'select',options:periods.data?.map(p=>({value:p.id,label:p.name}))}]}/></section>{reports.data?.map(r=><section className="card" key={r.id}><h2>{periods.data?.find(p=>p.id===r.period_id)?.name} · {statusLabels[r.status]}</h2><p className="muted">Срез {r.created_at} UTC · SHA-256: {r.content_hash}</p><label>Предпросмотр BBCode<textarea readOnly value={r.bbcode} rows={10}/></label>{r.status==='DRAFT'&&<OperationForm op="report.review" target={r.id} title="Передать на проверку"/>}{r.status==='READY_FOR_REVIEW'&&allowed(access,'reports.approve')&&access.roles.includes('finance_director')&&<OperationForm op="report.approve" target={r.id} title="Утвердить неизменяемый срез"/>}{r.status==='APPROVED'&&<OperationForm op="report.export" target={r.id} title="Зафиксировать выгрузку" fields={[{name:'publication_url',label:'Ссылка на публикацию (при наличии)',type:'url',required:false}]}/ >}{['APPROVED','EXPORTED'].includes(r.status)&&<CopyBBCode text={r.bbcode}/>}<p>Автоматической публикации на форуме нет. Исправление — новая редакция.</p></section>)}</>;
+}

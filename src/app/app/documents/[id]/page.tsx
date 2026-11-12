@@ -1,0 +1,10 @@
+import {z} from 'zod';
+import {notFound} from 'next/navigation';
+import Link from 'next/link';
+import {requireAccess} from '@/lib/auth';
+import {draftFields} from '@/lib/cases';
+import {PrintButton} from '@/components/print-button';
+export default async function Document({params}:{params:Promise<{id:string}>}){
+ const {db}=await requireAccess();const {id}=await params;if(!z.uuid().safeParse(id).success)notFound();const {data:d,error}=await db.from('documents').select('*').eq('id',id).maybeSingle();if(error)throw new Error('Документ недоступен');if(!d)notFound();const {data:versions,error:vError}=await db.from('document_versions').select('*').eq('document_id',id).order('version');if(vError)throw new Error('Версии недоступны');
+ return <><p className="eyebrow">STATE OF SAN ANDREAS · DEPARTMENT OF FINANCE</p><h1>{d.document_index}</h1><p>{d.basis}</p><p className="muted">Создан: {d.created_at} UTC. Внутренняя регистрация не заменяет обязательную внешнюю публикацию и не является квалифицированной электронной подписью.</p><PrintButton/>{d.case_id&&<p><Link href={'/app/cases/'+d.case_id}>Связанное дело</Link></p>}{versions?.map(v=><section className="card" key={v.id}><h2>Версия {v.version}</h2><dl>{Object.entries(v.content as Record<string,unknown>).filter(([,value])=>typeof value==='string').map(([key,value])=><div key={key}><dt>{draftFields.find(f=>f.key===key)?.label||({decision:'Решение',spent:'Использовано',returned:'Возвращено',proof:'Подтверждение',kind:'Тип записи',confirmation:'Номер подтверждения',cancelled_order:'Аннулированный ордер',cash_movement:'Движение средств',corrects:'Корректируемая запись',before:'Лимит до изменения',after:'Лимит после изменения',period:'Отчётный период',start:'Начало периода',end:'Конец периода',opening:'Начальный баланс',closing:'Итоговый баланс',income:'Поступления',expense:'Кассовые расходы',corrections:'Корректировки',net:'Изменение баланса',active_reserved:'Действующий резерв',snapshot_at:'Дата среза'} as Record<string,string>)[key]||key}</dt><dd>{String(value)}</dd></div>)}</dl>{Array.isArray(v.content.items)&&<pre>{JSON.stringify(v.content.items,null,2)}</pre>}</section>)}</>;
+}

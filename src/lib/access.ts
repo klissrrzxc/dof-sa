@@ -9,9 +9,9 @@ export function visibleModules(a: Access) {
   return [
     { href: '/app', label: 'Обзор', visible: true },
     { href: '/app/cases', label: 'Заявления', visible: a.roles.some(r => r !== 'system_admin') || allowed(a,'cases.read_all') },
-    { href: '/app/treasury', label: 'Казначейство', visible: a.permissions.some(p => p.startsWith('treasury.')) },
-    { href: '/app/documents', label: 'Документы', visible: allowed(a,'docs.manage') },
-    { href: '/app/reports', label: 'Отчётность', visible: allowed(a,'reports.approve') },
+    { href: '/app/treasury', label: 'Казначейство', visible: a.permissions.some(p => p.startsWith('treasury.') || ['finance.approve','reports.approve'].includes(p)) },
+    { href: '/app/documents', label: 'Документы', visible: a.roles.some(r=>r!=='system_admin') || allowed(a,'docs.manage') },
+    { href: '/app/reports', label: 'Отчётность', visible: a.permissions.some(p=>p.startsWith('treasury.') || ['finance.approve','reports.approve'].includes(p)) },
     { href: '/app/admin', label: 'Администрирование', visible: ['users.manage','settings.manage','audit.read'].some(p => a.permissions.includes(p as Permission)) },
-  ].filter(m => m.visible && ['/app','/app/cases','/app/admin'].includes(m.href));
+  ].filter(m => m.visible);
 }

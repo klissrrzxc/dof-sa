@@ -7,9 +7,9 @@ describe('server navigation and authority',()=>{
     expect(allowed(admin,'treasury.execute')).toBe(false);
     expect(visibleModules(admin).map(x=>x.label)).toEqual(['Обзор','Администрирование']);
   });
-  it('unfinished modules do not become broken navigation links',()=>{
+  it('treasury grant reveals the implemented treasury module',()=>{
     const granted={...admin,permissions:[...admin.permissions,'treasury.execute'] as Access['permissions']};
     expect(allowed(granted,'treasury.execute')).toBe(true);
-    expect(visibleModules(granted).map(x=>x.label)).not.toContain('Казначейство');
+    expect(visibleModules(granted).map(x=>x.label)).toContain('Казначейство');
   });
 });

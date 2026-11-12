@@ -1,5 +1,20 @@
-import { requireAccess } from '@/lib/auth';
-export default async function Dashboard() {
-  const { access } = await requireAccess();
-  return <><p className="eyebrow">FINANCIAL MANAGEMENT SYSTEM</p><h1>Рабочее пространство</h1><p className="muted">Персональный доступ Министерства финансов штата Сан-Андреас.</p><section className="card"><h2>Сведения о доступе</h2><dl><dt>Должностное лицо</dt><dd>{access.ic_name}</dd><dt>Должность</dt><dd>{access.title}</dd><dt>Назначения</dt><dd>{access.roles.join(', ') || 'Нет действующих назначений'}</dd><dt>Дополнительные полномочия</dt><dd>{access.permissions.join(', ') || 'Не предоставлены'}</dd></dl></section><section className="card"><h2>Нормативная проверка</h2><p>Форумные акты ссылаются на MOF-BFR-01 и MOF-PR-01. Ссылки подачи ведут на единую форму MOF-REQ-01. До сверки действующей редакции официальная регистрация финансовых операций закрыта.</p><p className="muted">Финансовые показатели появятся после подключения казначейского учёта и ввода подтверждённых начальных остатков.</p></section></>;
+import Link from 'next/link';
+import {requireAccess} from '@/lib/auth';
+import {roleLabels} from '@/lib/access';
+import {formatMoney} from '@/lib/cases';
+import {statusLabels} from '@/lib/operations';
+export default async function Dashboard(){
+ const {db,access}=await requireAccess();const finance=access.roles.some(r=>['finance_officer','finance_director'].includes(r))&&access.permissions.some(p=>p.startsWith('treasury.')||['finance.approve','reports.approve'].includes(p));
+ const [submitted,review,clarification,recent,account]=await Promise.all([
+  db.from('financial_cases').select('id',{count:'exact',head:true}).eq('status','SUBMITTED'),
+  db.from('financial_cases').select('id',{count:'exact',head:true}).eq('status','UNDER_REVIEW'),
+  db.from('financial_cases').select('id',{count:'exact',head:true}).eq('status','NEEDS_CLARIFICATION'),
+  db.from('financial_cases').select('id,document_index,status,payload,created_at').order('created_at',{ascending:false}).limit(5),
+  finance?db.from('treasury_account_read').select('*').single():null,
+ ]);
+ if([submitted,review,clarification,recent,account].some(r=>r?.error))throw new Error('Обзор временно недоступен');
+ return <><p className="eyebrow">FINANCIAL MANAGEMENT SYSTEM</p><h1>Обзор</h1><p className="muted">Задачи и показатели в пределах ваших действующих полномочий.</p><div className="kpi-grid">{[['SUBMITTED','Ожидают рассмотрения',submitted.count],['UNDER_REVIEW','На рассмотрении',review.count],['NEEDS_CLARIFICATION','Требуют уточнения',clarification.count]].map(([status,label,count])=><section className="card" key={String(status)}><p className="muted">{label}</p><h2>{count??0}</h2><Link href={'/app/cases?status='+status}>Открыть реестр</Link></section>)}</div>
+ {finance&&<section className="card"><h2>Состояние казны</h2>{account?.data?.initialized?<dl><dt>Фактический остаток</dt><dd>{formatMoney(account.data.actual)}</dd><dt>Действующий резерв</dt><dd>{formatMoney(account.data.reserved)}</dd><dt>Доступно</dt><dd>{formatMoney(account.data.available)}</dd></dl>:<p className="notice">Начальный остаток ещё не подтверждён. Заполните справочники, создайте бюджетный период и зарегистрируйте фактический остаток по акту сверки. Подтверждённый нулевой остаток также поддерживается.</p>}<Link href="/app/treasury">Перейти в казначейство</Link></section>}
+ <section className="card"><h2>Последние доступные дела</h2>{recent.data?.length?<div className="table-scroll"><table><thead><tr><th>Дело</th><th>Назначение</th><th>Статус</th></tr></thead><tbody>{recent.data.map(c=><tr key={c.id}><td><Link href={'/app/cases/'+c.id}>{c.document_index||'Черновик'}</Link></td><td>{c.payload.purpose||'Не указано'}</td><td>{statusLabels[c.status]}</td></tr>)}</tbody></table></div>:<p>Финансовых дел пока нет.</p>}</section>
+ <section className="card"><h2>Служебный доступ</h2><dl><dt>Должностное лицо</dt><dd>{access.ic_name}</dd><dt>Должность</dt><dd>{access.title}</dd><dt>Назначения</dt><dd>{access.roles.map(r=>roleLabels[r]).join(', ')}</dd></dl><p className="muted">Внутренняя регистрация FMS не заменяет внешнюю публикацию, когда она требуется, и не означает автоматический перевод денег. Время отображается в UTC до утверждения RP-часового пояса.</p></section></>;
 }
